@@ -2,6 +2,7 @@ package main
 
 import k2 ".deps/github.com/karl-zylinski/karl2d"
 import hm "core:container/handle_map"
+import "core:math"
 import g "game"
 
 TILE_SIZE :: 16
@@ -16,6 +17,18 @@ init :: proc() {
 step :: proc() -> bool {
 	if !k2.update() {return false}
 	dt := k2.get_frame_time()
+
+	{ 	//input
+		if k2.key_went_down(.Up) {
+			g.player_move(&game, .north)
+		} else if k2.key_went_down(.Down) {
+			g.player_move(&game, .south)
+		} else if k2.key_went_down(.Left) {
+			g.player_move(&game, .west)
+		} else if k2.key_went_down(.Right) {
+			g.player_move(&game, .east)
+		}
+	}
 
 	{ 	// update
 		g.update(&game, dt)
@@ -32,6 +45,26 @@ step :: proc() -> bool {
 }
 
 draw_game :: proc() {
+	sw := f32(k2.get_screen_width())
+	sh := f32(k2.get_screen_height())
+
+	world_w := f32(game.level.width * TILE_SIZE)
+	world_h := f32(game.level.height * TILE_SIZE)
+
+	zoom := math.floor(sh / world_h)
+	if zoom < 1 {zoom = 1}
+
+	play_w := world_w * zoom
+	play_h := world_h * zoom
+	offset := k2.Vec2{(sw - play_w) / 2, (sh - play_h) / 2}
+
+	cam := k2.Camera {
+		offset = offset,
+		zoom   = zoom,
+	}
+	k2.set_camera(cam)
+	defer k2.set_camera(nil)
+
 	// draw level
 	for y in 0 ..< game.level.height {
 		for x in 0 ..< game.level.width {
@@ -60,6 +93,10 @@ draw_game :: proc() {
 		switch e.kind {
 		case .player:
 			entity_color = k2.YELLOW
+		case .key:
+			entity_color = k2.WHITE
+		case .exit:
+			entity_color = k2.GREEN
 		}
 		rect := k2.Rect {
 			x = f32(e.pos.x * TILE_SIZE),
