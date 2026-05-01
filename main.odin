@@ -97,6 +97,8 @@ draw_game :: proc() {
 			entity_color = k2.WHITE
 		case .exit:
 			entity_color = k2.GREEN
+		case .patrol_dog:
+			entity_color = k2.RED
 		}
 		rect := k2.Rect {
 			x = f32(e.pos.x * TILE_SIZE),
