@@ -130,65 +130,41 @@ draw_level :: proc() {
 }
 
 draw_entity :: proc(e: ^g.Entity) {
-	entity_color: k2.Color
-	switch e.kind {
-	case .key:
-		entity_color = k2.WHITE
-	case .exit:
-		if game.level.has_key {
-			pulse := 0.5 + 0.5 * math.sin(e.anim_timer * 6)
-			entity_color = k2.Color{u8(50 * pulse), 200, u8(50 * pulse), 255}
-		} else {
-			entity_color = k2.Color{0, 100, 0, 255}
-		}
-	case .bone:
-		entity_color = k2.BLUE
-	case .player, .patrol_dog, .guard_dog, .sleeping_dog:
-	}
-
 	t := f32(0)
 	if g.MOVE_DURATION > 0 {
 		t = math.min(e.move_timer / g.MOVE_DURATION, 1.0)
 	}
-
 	ease := 1.0 - (1.0 - t) * (1.0 - t)
 	draw_x := math.lerp(f32(e.prev_pos.x), f32(e.pos.x), ease) * TILE_SIZE
 	draw_y := math.lerp(f32(e.prev_pos.y), f32(e.pos.y), ease) * TILE_SIZE
 
-	if e.kind == .key || e.kind == .exit || e.kind == .bone {
-		bob := math.sin(e.anim_timer * 4) * 2
-		draw_y += bob
+	// bob items (not exit — it has its own animation; not creatures)
+	if e.kind == .key || e.kind == .bone {
+		draw_y += math.sin(e.anim_timer * 4) * 2
 	}
 
-	if source, has_sprite := sprite_source(e); has_sprite {
-		flash_grow := f32(0)
-		tint := k2.WHITE
-		if e.flash_timer > 0 {
-			flash_grow = 4
-			tint = k2.Color{255, 100, 100, 255}
-		}
+	source, ok := sprite_source(e)
+	if !ok {return}
 
-		dest := k2.Rect {
-			x = draw_x - flash_grow,
-			y = draw_y - flash_grow,
-			w = TILE_SIZE + flash_grow * 2,
-			h = TILE_SIZE + flash_grow * 2,
-		}
-		k2.draw_texture_fit(assets.sprites, source, dest, tint = tint)
-	} else {
-		color := entity_color
-		if e.flash_timer > 0 {
-			color = k2.WHITE
-		}
-		rect := k2.Rect {
-			x = draw_x,
-			y = draw_y,
-			w = TILE_SIZE,
-			h = TILE_SIZE,
-		}
-		k2.draw_rect(rect, color)
+	tint := k2.WHITE
+	flash_grow := f32(0)
+	if e.kind == .exit && !game.level.has_key {
+		tint = k2.Color{130, 130, 130, 255} // dim when locked
 	}
+	if e.flash_timer > 0 {
+		flash_grow = 4
+		tint = k2.Color{255, 100, 100, 255}
+	}
+
+	dest := k2.Rect {
+		x = draw_x - flash_grow,
+		y = draw_y - flash_grow,
+		w = TILE_SIZE + flash_grow * 2,
+		h = TILE_SIZE + flash_grow * 2,
+	}
+	k2.draw_texture_fit(assets.sprites, source, dest, tint = tint)
 }
+
 
 draw_hud :: proc() {
 	player_hp := g.get_entity_hp(&game, game.player_handle)
@@ -249,17 +225,22 @@ sprite_source :: proc(e: ^g.Entity) -> (k2.Rect, bool) {
 	case .player:
 		return k2.Rect{0, 0, SPRITE, SPRITE}, true
 	case .patrol_dog:
-		return k2.Rect{16, 0, SPRITE, SPRITE}, true
+		return k2.Rect{1 * SPRITE, 0, SPRITE, SPRITE}, true
 	case .guard_dog:
-		return k2.Rect{32, 0, SPRITE, SPRITE}, true
+		return k2.Rect{2 * SPRITE, 0, SPRITE, SPRITE}, true
 	case .sleeping_dog:
-		if e.is_asleep {
-			return k2.Rect{64, 0, SPRITE, SPRITE}, true
-		} else {
-			return k2.Rect{48, 0, SPRITE, SPRITE}, true
+		col := 4 if e.is_asleep else 3
+		return k2.Rect{f32(col * SPRITE), 0, SPRITE, SPRITE}, true
+	case .bone:
+		return k2.Rect{0, SPRITE, SPRITE, SPRITE}, true
+	case .key:
+		return k2.Rect{1 * SPRITE, SPRITE, SPRITE, SPRITE}, true
+	case .exit:
+		if game.level.has_key {
+			frame := int(e.anim_timer * 2) % 2
+			return k2.Rect{f32((2 + frame) * SPRITE), SPRITE, SPRITE, SPRITE}, true
 		}
-	case .key, .exit, .bone:
-		return {}, false
+		return k2.Rect{2 * SPRITE, SPRITE, SPRITE, SPRITE}, true
 	}
 	return {}, false
 }
