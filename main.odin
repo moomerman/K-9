@@ -11,6 +11,16 @@ import g "game"
 
 TILE_SIZE :: 16
 
+GameState :: enum {
+	title,
+	playing,
+}
+
+state: GameState = .title
+game_initialized: bool
+last_level: int
+best_level: int
+
 game: g.Game
 music: k2.Audio_Stream
 
@@ -20,7 +30,24 @@ init :: proc() {
 	assets.load_textures()
 	music = assets.load_music(assets.level_music)
 	k2.play_audio_stream(music)
+}
+
+start_run :: proc() {
+	if game_initialized {g.shutdown(&game)}
 	g.init(&game)
+	game_initialized = true
+	state = .playing
+}
+
+end_run :: proc() {
+	last_level = game.level_number
+
+	if last_level > best_level {
+		best_level = last_level
+	}
+	g.shutdown(&game)
+	game_initialized = false
+	state = .title
 }
 
 step :: proc() -> bool {
@@ -32,16 +59,23 @@ step :: proc() -> bool {
 	}
 
 	{ 	// update
-		g.update(&game, dt)
-		play_event_sounds()
+		if state == .playing {
+			g.update(&game, dt)
+			play_event_sounds()
+		}
 		k2.update_audio_stream(music)
 	}
 
 	{ 	// render
 		k2.clear(k2.BLACK)
-		draw_game()
-		draw_hud()
-		draw_overlay()
+		switch state {
+		case .title:
+			draw_title()
+		case .playing:
+			draw_game()
+			draw_hud()
+			draw_overlay()
+		}
 		k2.present()
 	}
 
@@ -50,24 +84,60 @@ step :: proc() -> bool {
 }
 
 handle_input :: proc() {
-	if game.won || game.lost {
+	switch state {
+	case .title:
 		if k2.key_went_down(.Space) {
-			g.advance(&game)
+			start_run()
 		}
-	} else {
-		if k2.key_went_down(.Up) {
-			g.player_move(&game, .north)
-		} else if k2.key_went_down(.Down) {
-			g.player_move(&game, .south)
-		} else if k2.key_went_down(.Left) {
-			g.player_move(&game, .west)
-		} else if k2.key_went_down(.Right) {
-			g.player_move(&game, .east)
-		} else if k2.key_went_down(.N1) {
-			g.player_drop_bone(&game)
-		}
+	case .playing:
+		if game.lost {
+			if k2.key_went_down(.Space) {
+				end_run()
+			}
+		} else if game.won {
+			if k2.key_went_down(.Space) {
+				g.advance(&game)
+			}
+		} else {
+			if k2.key_went_down(.Up) {
+				g.player_move(&game, .north)
+			} else if k2.key_went_down(.Down) {
+				g.player_move(&game, .south)
+			} else if k2.key_went_down(.Left) {
+				g.player_move(&game, .west)
+			} else if k2.key_went_down(.Right) {
+				g.player_move(&game, .east)
+			} else if k2.key_went_down(.N1) {
+				g.player_drop_bone(&game)
+			}}
 	}
 }
+
+draw_title :: proc() {
+	sw := f32(k2.get_screen_width())
+	sh := f32(k2.get_screen_height())
+
+	title := "K-9"
+	title_size := k2.measure_text(title, 96)
+	k2.draw_text(title, {(sw - title_size.x) / 2, sh * 0.18}, 96, k2.WHITE)
+
+	prompt := "PRESS SPACE TO START"
+	p_size := k2.measure_text(prompt, 32)
+	k2.draw_text(prompt, {(sw - p_size.x) / 2, sh * 0.50}, 32, k2.WHITE)
+
+	if last_level > 0 {
+		msg := fmt.tprintf("LAST RUN: LEVEL %d", last_level)
+		size := k2.measure_text(msg, 24)
+		k2.draw_text(msg, {(sw - size.x) / 2, sh * 0.66}, 24, k2.WHITE)
+	}
+
+	if best_level > 0 {
+		msg := fmt.tprintf("BEST RUN: LEVEL %d", best_level)
+		size := k2.measure_text(msg, 24)
+		k2.draw_text(msg, {(sw - size.x) / 2, sh * 0.74}, 24, k2.WHITE)
+	}
+}
+
 
 draw_game :: proc() {
 	sw := f32(k2.get_screen_width())
@@ -188,7 +258,7 @@ draw_overlay :: proc() {
 		if game.won {
 			msg = fmt.tprintf("LEVEL %d COMPLETE — SPACE TO CONTINUE", game.level_number)
 		} else {
-			msg = fmt.tprintf("DIED ON LEVEL %d — SPACE TO RESTART", game.level_number)
+			msg = fmt.tprintf("DIED ON LEVEL %d — SPACE TO CONTINUE", game.level_number)
 		}
 
 		size := k2.measure_text(msg, 32)
@@ -246,7 +316,7 @@ sprite_source :: proc(e: ^g.Entity) -> (k2.Rect, bool) {
 }
 
 shutdown :: proc() {
-	g.shutdown(&game)
+	if game_initialized {g.shutdown(&game)}
 	k2.destroy_audio_stream(music)
 	k2.shutdown()
 }
