@@ -83,6 +83,7 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 
 	patrol_count := 1 + g.level_number
 	guard_count := (g.level_number + 1) / 2
+	sleeper_count := g.level_number / 2
 
 	for _ in 0 ..< patrol_count {
 		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
@@ -97,6 +98,17 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 		if len(candidates) == 0 {break}
 		pos := candidates[rand.int_max(len(candidates))]
 		_ = hm.add(&g.level.entities, Entity{kind = .guard_dog, pos = pos, hp = 2})
+		append(&excluded, pos)
+	}
+
+	for _ in 0 ..< sleeper_count {
+		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
+		if len(candidates) == 0 {break}
+		pos := candidates[rand.int_max(len(candidates))]
+		_ = hm.add(
+			&g.level.entities,
+			Entity{kind = .sleeping_dog, pos = pos, hp = 1, is_asleep = true},
+		)
 		append(&excluded, pos)
 	}
 }
@@ -124,6 +136,7 @@ try_act :: proc(g: ^Game, h: EntityHandle, delta: [2]int) -> bool {
 				return false
 			}
 			creature.hp -= 1
+			creature.is_asleep = false
 			fmt.printf("hit %v, hp now %d\n", creature.kind, creature.hp)
 			if creature.hp <= 0 {
 				hm.remove(&g.level.entities, creature_h)
@@ -153,7 +166,7 @@ on_player_entered_tile :: proc(g: ^Game) {
 			if g.level.has_key {
 				g.won = true
 			}
-		case .player, .patrol_dog, .guard_dog:
+		case .player, .patrol_dog, .guard_dog, .sleeping_dog:
 		}
 	}
 }
@@ -201,6 +214,8 @@ enemies_act :: proc(g: ^Game) {
 			patrol_dog_act(g, h)
 		case .guard_dog:
 			guard_dog_act(g, h)
+		case .sleeping_dog:
+			sleeping_dog_act(g, h)
 		case .player, .key, .exit:
 		}
 	}
@@ -235,6 +250,38 @@ guard_dog_act :: proc(g: ^Game, h: EntityHandle) {
 	if !ok {return}
 	player, p_ok := hm.get(&g.level.entities, g.player_handle)
 	if !p_ok {return}
+
+	if has_line_of_sight(&g.level, dog.pos, player.pos) {
+		step: [2]int
+		if dog.pos.x == player.pos.x {
+			step.y = player.pos.y > dog.pos.y ? 1 : -1
+		} else {
+			step.x = player.pos.x > dog.pos.x ? 1 : -1
+		}
+		dog.chase_dir = step
+	}
+
+	if dog.chase_dir != {0, 0} {
+		if !try_act(g, h, dog.chase_dir) {
+			dog.chase_dir = {}
+		}
+	}
+}
+
+sleeping_dog_act :: proc(g: ^Game, h: EntityHandle) {
+	dog, ok := hm.get(&g.level.entities, h)
+	if !ok {return}
+	player, p_ok := hm.get(&g.level.entities, g.player_handle)
+	if !p_ok {return}
+
+	if dog.is_asleep {
+		diff := player.pos - dog.pos
+		if abs(diff.x) + abs(diff.y) <= 3 {
+			dog.is_asleep = false
+		} else {
+			return
+		}
+	}
 
 	if has_line_of_sight(&g.level, dog.pos, player.pos) {
 		step: [2]int

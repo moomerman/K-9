@@ -123,6 +123,12 @@ draw_game :: proc() {
 			entity_color = k2.RED
 		case .guard_dog:
 			entity_color = k2.ORANGE
+		case .sleeping_dog:
+			if e.is_asleep {
+				entity_color = k2.Color{120, 80, 200, 255}
+			} else {
+				entity_color = k2.Color{180, 60, 220, 255}
+			}
 		}
 		rect := k2.Rect {
 			x = f32(e.pos.x * TILE_SIZE),
