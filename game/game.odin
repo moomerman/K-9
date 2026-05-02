@@ -14,25 +14,55 @@ Direction :: enum {
 Game :: struct {
 	level:         Level,
 	player_handle: EntityHandle,
+	level_number:  int,
 	won, lost:     bool,
 }
 
 init :: proc(g: ^Game) {
-	g.level = parse_level_from_strings(LEVEL_1[:])
-	init_entities(g)
+	g^ = {}
+	g.level_number = 1
+	start_level(g)
 }
 
 update :: proc(g: ^Game, dt: f32) {}
+
+advance :: proc(g: ^Game) {
+	if g.won {
+		g.level_number += 1
+		start_level(g)
+	} else if g.lost {
+		g.level_number = 1
+		start_level(g)
+	}
+}
 
 shutdown :: proc(g: ^Game) {
 	hm.dynamic_destroy(&g.level.entities)
 	delete(g.level.tiles)
 }
 
-init_entities :: proc(g: ^Game) {
+start_level :: proc(g: ^Game) {
+	starting_hp := 3
+	if g.level.tiles != nil {
+		if e, ok := hm.get(&g.level.entities, g.player_handle); ok {
+			starting_hp = min(e.hp + 1, 9)
+		}
+		hm.dynamic_destroy(&g.level.entities)
+		delete(g.level.tiles)
+	}
+	g.won = false
+	g.lost = false
+	g.level = parse_level_from_strings(LEVEL_1[:])
+	init_entities(g, starting_hp)
+}
+
+init_entities :: proc(g: ^Game, player_hp: int) {
 	entrance_candidates := list_walkable_tiles_in_column(&g.level, 1)
 	entrance_pos := entrance_candidates[rand.int_max(len(entrance_candidates))]
-	g.player_handle = hm.add(&g.level.entities, Entity{kind = .player, pos = entrance_pos, hp = 3})
+	g.player_handle = hm.add(
+		&g.level.entities,
+		Entity{kind = .player, pos = entrance_pos, hp = player_hp},
+	)
 
 	exit_candidates := list_walkable_tiles_in_column(&g.level, g.level.width - 2)
 	exit_pos := exit_candidates[rand.int_max(len(exit_candidates))]
@@ -60,6 +90,10 @@ player_move :: proc(g: ^Game, dir: Direction) {
 	if !try_act(g, g.player_handle, delta) {return}
 	on_player_entered_tile(g)
 	enemies_act(g)
+
+	if !hm.is_valid(&g.level.entities, g.player_handle) {
+		g.lost = true
+	}
 }
 
 try_act :: proc(g: ^Game, h: EntityHandle, delta: [2]int) -> bool {
@@ -102,7 +136,6 @@ on_player_entered_tile :: proc(g: ^Game) {
 		case .exit:
 			if g.level.has_key {
 				g.won = true
-				fmt.println("WON!")
 			}
 		case .player, .patrol_dog, .guard_dog:
 		}

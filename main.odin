@@ -2,6 +2,7 @@ package main
 
 import k2 ".deps/github.com/karl-zylinski/karl2d"
 import hm "core:container/handle_map"
+import "core:fmt"
 import "core:math"
 import g "game"
 
@@ -19,6 +20,31 @@ step :: proc() -> bool {
 	dt := k2.get_frame_time()
 
 	{ 	//input
+		handle_input()
+	}
+
+	{ 	// update
+		g.update(&game, dt)
+	}
+
+	{ 	// render
+		k2.clear(k2.BLACK)
+		draw_game()
+		draw_hud()
+		draw_overlay()
+		k2.present()
+	}
+
+	free_all(context.temp_allocator)
+	return true
+}
+
+handle_input :: proc() {
+	if game.won || game.lost {
+		if k2.key_went_down(.Space) {
+			g.advance(&game)
+		}
+	} else {
 		if k2.key_went_down(.Up) {
 			g.player_move(&game, .north)
 		} else if k2.key_went_down(.Down) {
@@ -29,19 +55,6 @@ step :: proc() -> bool {
 			g.player_move(&game, .east)
 		}
 	}
-
-	{ 	// update
-		g.update(&game, dt)
-	}
-
-	{ 	// render
-		k2.clear(k2.BLACK)
-		draw_game()
-		k2.present()
-	}
-
-	free_all(context.temp_allocator)
-	return true
 }
 
 draw_game :: proc() {
@@ -109,6 +122,32 @@ draw_game :: proc() {
 			h = TILE_SIZE,
 		}
 		k2.draw_rect(rect, entity_color)
+	}
+}
+
+draw_hud :: proc() {
+	player_hp := g.get_entity_hp(&game, game.player_handle)
+	hud_text := fmt.tprintf("LEVEL %d   HP %d", game.level_number, player_hp)
+	k2.draw_text(hud_text, {16, 16}, 24, k2.WHITE)
+}
+
+draw_overlay :: proc() {
+	if game.won || game.lost {
+		sw := f32(k2.get_screen_width())
+		sh := f32(k2.get_screen_height())
+
+		k2.draw_rect({0, 0, sw, sh}, k2.Color{0, 0, 0, 180})
+
+		msg: string
+		if game.won {
+			msg = fmt.tprintf("LEVEL %d COMPLETE — SPACE TO CONTINUE", game.level_number)
+		} else {
+			msg = fmt.tprintf("DIED ON LEVEL %d — SPACE TO RESTART", game.level_number)
+		}
+
+		size := k2.measure_text(msg, 32)
+		pos := k2.Vec2{(sw - size.x) / 2, (sh - size.y) / 2}
+		k2.draw_text(msg, pos, 32, k2.WHITE)
 	}
 }
 
