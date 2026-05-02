@@ -1,9 +1,12 @@
 package main
 
 import k2 ".deps/github.com/karl-zylinski/karl2d"
+
 import hm "core:container/handle_map"
 import "core:fmt"
 import "core:math"
+
+import "assets"
 import g "game"
 
 TILE_SIZE :: 16
@@ -12,6 +15,7 @@ game: g.Game
 
 init :: proc() {
 	k2.init(1000, 600, "K-9", {window_mode = .Windowed_Resizable})
+	assets.load_sounds()
 	g.init(&game)
 }
 
@@ -25,6 +29,7 @@ step :: proc() -> bool {
 
 	{ 	// update
 		g.update(&game, dt)
+		play_event_sounds()
 	}
 
 	{ 	// render
@@ -205,6 +210,29 @@ draw_overlay :: proc() {
 		k2.draw_text(msg, pos, 32, k2.WHITE)
 	}
 }
+
+play_event_sounds :: proc() {
+	for event in game.events {
+		switch event {
+		case .player_moved:
+			k2.play_sound(assets.sounds.move)
+		case .attack_landed:
+			k2.play_sound(assets.sounds.hit)
+		case .player_damaged:
+			k2.play_sound(assets.sounds.hurt)
+		case .pickup:
+			k2.play_sound(assets.sounds.pickup)
+		case .enemy_died:
+			k2.play_sound(assets.sounds.death)
+		case .player_died:
+			k2.play_sound(assets.sounds.death)
+		case .level_complete:
+			k2.play_sound(assets.sounds.win)
+		}
+	}
+	clear(&game.events)
+}
+
 
 shutdown :: proc() {
 	g.shutdown(&game)

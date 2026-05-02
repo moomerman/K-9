@@ -14,13 +14,25 @@ Direction :: enum {
 Game :: struct {
 	level:         Level,
 	player_handle: EntityHandle,
+	events:        [dynamic]GameEvent,
 	level_number:  int,
 	bones:         int,
 	won, lost:     bool,
 }
 
+GameEvent :: enum {
+	attack_landed,
+	player_moved,
+	player_damaged,
+	pickup,
+	enemy_died,
+	player_died,
+	level_complete,
+}
+
 init :: proc(g: ^Game) {
 	g^ = {}
+	g.events = make([dynamic]GameEvent, context.allocator)
 	g.level_number = 1
 	start_level(g)
 }
@@ -47,6 +59,7 @@ advance :: proc(g: ^Game) {
 shutdown :: proc(g: ^Game) {
 	hm.dynamic_destroy(&g.level.entities)
 	delete(g.level.tiles)
+	delete(g.events)
 }
 
 start_level :: proc(g: ^Game) {
@@ -128,6 +141,7 @@ player_move :: proc(g: ^Game, dir: Direction) {
 	if !try_act(g, g.player_handle, delta) {return}
 	on_player_entered_tile(g)
 	enemies_act(g)
+	append(&g.events, GameEvent.player_moved)
 
 	if !hm.is_valid(&g.level.entities, g.player_handle) {
 		g.lost = true
@@ -147,9 +161,17 @@ try_act :: proc(g: ^Game, h: EntityHandle, delta: [2]int) -> bool {
 			}
 			creature.hp -= 1
 			creature.flash_timer = FLASH_DURATION
+			if creature.kind == .player {
+				append(&g.events, GameEvent.player_damaged)
+			}
 			creature.is_asleep = false
 			fmt.printf("hit %v, hp now %d\n", creature.kind, creature.hp)
 			if creature.hp <= 0 {
+				if creature.kind == .player {
+					append(&g.events, GameEvent.player_died)
+				} else {
+					append(&g.events, GameEvent.enemy_died)
+				}
 				hm.remove(&g.level.entities, creature_h)
 			}
 			return true
@@ -174,13 +196,16 @@ on_player_entered_tile :: proc(g: ^Game) {
 		switch e.kind {
 		case .key:
 			g.level.has_key = true
+			append(&g.events, GameEvent.pickup)
 			hm.remove(&g.level.entities, h)
 		case .exit:
 			if g.level.has_key {
 				g.won = true
+				append(&g.events, GameEvent.level_complete)
 			}
 		case .bone:
 			g.bones += 1
+			append(&g.events, GameEvent.pickup)
 			hm.remove(&g.level.entities, h)
 		case .player, .patrol_dog, .guard_dog, .sleeping_dog:
 		}
