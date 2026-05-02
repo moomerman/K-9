@@ -52,19 +52,19 @@ start_level :: proc(g: ^Game) {
 	}
 	g.won = false
 	g.lost = false
-	g.level = parse_level_from_strings(LEVEL_1[:])
+	g.level = parse_level_from_strings(level_for_number(g.level_number))
 	init_entities(g, starting_hp)
 }
 
 init_entities :: proc(g: ^Game, player_hp: int) {
-	entrance_candidates := list_walkable_tiles_in_column(&g.level, 1)
+	entrance_candidates := list_walkable_tiles_in_column(&g.level, 0)
 	entrance_pos := entrance_candidates[rand.int_max(len(entrance_candidates))]
 	g.player_handle = hm.add(
 		&g.level.entities,
 		Entity{kind = .player, pos = entrance_pos, hp = player_hp},
 	)
 
-	exit_candidates := list_walkable_tiles_in_column(&g.level, g.level.width - 2)
+	exit_candidates := list_walkable_tiles_in_column(&g.level, g.level.width - 1)
 	exit_pos := exit_candidates[rand.int_max(len(exit_candidates))]
 	_ = hm.add(&g.level.entities, Entity{kind = .exit, pos = exit_pos})
 

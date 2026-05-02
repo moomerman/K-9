@@ -71,6 +71,15 @@ draw_game :: proc() {
 	play_h := world_h * zoom
 	offset := k2.Vec2{(sw - play_w) / 2, (sh - play_h) / 2}
 
+	border_w :: 4
+	border := k2.Rect {
+		offset.x - border_w,
+		offset.y - border_w,
+		play_w + border_w * 2,
+		play_h + border_w * 2,
+	}
+	k2.draw_rect_outline(border, border_w, k2.DARK_BLUE)
+
 	cam := k2.Camera {
 		offset = offset,
 		zoom   = zoom,
