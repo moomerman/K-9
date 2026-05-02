@@ -13,10 +13,11 @@ EntityKind :: enum {
 }
 
 Entity :: struct {
-	handle: EntityHandle,
-	kind:   EntityKind,
-	pos:    [2]int,
-	hp:     int,
+	handle:    EntityHandle,
+	kind:      EntityKind,
+	pos:       [2]int,
+	chase_dir: [2]int,
+	hp:        int,
 }
 
 is_creature :: proc(k: EntityKind) -> bool {

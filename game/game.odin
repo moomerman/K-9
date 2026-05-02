@@ -207,6 +207,24 @@ enemies_act :: proc(g: ^Game) {
 }
 
 patrol_dog_act :: proc(g: ^Game, h: EntityHandle) {
+	dog, ok := hm.get(&g.level.entities, h)
+	if !ok {return}
+	player, p_ok := hm.get(&g.level.entities, g.player_handle)
+	if !p_ok {return}
+
+	diff := player.pos - dog.pos
+	manhattan := abs(diff.x) + abs(diff.y)
+	if manhattan <= 3 {
+		step: [2]int
+		if abs(diff.x) >= abs(diff.y) {
+			step.x = diff.x > 0 ? 1 : -1
+		} else {
+			step.y = diff.y > 0 ? 1 : -1
+		}
+		try_act(g, h, step)
+		return
+	}
+
 	deltas := [4][2]int{{0, -1}, {0, 1}, {-1, 0}, {1, 0}}
 	d := deltas[rand.int_max(4)]
 	try_act(g, h, d)
@@ -218,15 +236,19 @@ guard_dog_act :: proc(g: ^Game, h: EntityHandle) {
 	player, p_ok := hm.get(&g.level.entities, g.player_handle)
 	if !p_ok {return}
 
-	if !has_line_of_sight(&g.level, dog.pos, player.pos) {
-		return
+	if has_line_of_sight(&g.level, dog.pos, player.pos) {
+		step: [2]int
+		if dog.pos.x == player.pos.x {
+			step.y = player.pos.y > dog.pos.y ? 1 : -1
+		} else {
+			step.x = player.pos.x > dog.pos.x ? 1 : -1
+		}
+		dog.chase_dir = step
 	}
 
-	step: [2]int
-	if dog.pos.x == player.pos.x {
-		step.y = player.pos.y > dog.pos.y ? 1 : -1
-	} else {
-		step.x = player.pos.x > dog.pos.x ? 1 : -1
+	if dog.chase_dir != {0, 0} {
+		if !try_act(g, h, dog.chase_dir) {
+			dog.chase_dir = {}
+		}
 	}
-	try_act(g, h, step)
 }
