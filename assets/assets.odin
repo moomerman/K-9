@@ -4,6 +4,15 @@ import k2 "../.deps/github.com/karl-zylinski/karl2d"
 
 SFX_VOLUME :: 0.5
 
+level_music := #load("music/level.ogg")
+
+load_music :: proc(bytes: []u8) -> k2.Audio_Stream {
+	music := k2.load_audio_stream_from_bytes(bytes)
+	k2.set_audio_stream_loop(music, true)
+	k2.set_audio_stream_volume(music, 0.15)
+	return music
+}
+
 load_sfx :: proc(bytes: []u8) -> k2.Sound {
 	s := k2.load_sound_from_bytes(bytes)
 	k2.set_sound_volume(s, SFX_VOLUME)

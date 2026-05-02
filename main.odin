@@ -12,10 +12,13 @@ import g "game"
 TILE_SIZE :: 16
 
 game: g.Game
+music: k2.Audio_Stream
 
 init :: proc() {
 	k2.init(1000, 600, "K-9", {window_mode = .Windowed_Resizable})
 	assets.load_sounds()
+	music = assets.load_music(assets.level_music)
+	k2.play_audio_stream(music)
 	g.init(&game)
 }
 
@@ -30,6 +33,7 @@ step :: proc() -> bool {
 	{ 	// update
 		g.update(&game, dt)
 		play_event_sounds()
+		k2.update_audio_stream(music)
 	}
 
 	{ 	// render
@@ -236,6 +240,7 @@ play_event_sounds :: proc() {
 
 shutdown :: proc() {
 	g.shutdown(&game)
+	k2.destroy_audio_stream(music)
 	k2.shutdown()
 }
 
