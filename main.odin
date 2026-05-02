@@ -120,7 +120,12 @@ draw_game :: proc() {
 		case .key:
 			entity_color = k2.WHITE
 		case .exit:
-			entity_color = k2.GREEN
+			if game.level.has_key {
+				pulse := 0.5 + 0.5 * math.sin(e.anim_timer * 6)
+				entity_color = k2.Color{u8(50 * pulse), 200, u8(50 * pulse), 255}
+			} else {
+				entity_color = k2.Color{0, 100, 0, 255}
+			}
 		case .patrol_dog:
 			entity_color = k2.RED
 		case .guard_dog:
@@ -134,13 +139,39 @@ draw_game :: proc() {
 		case .bone:
 			entity_color = k2.BLUE
 		}
+
+		t := f32(0)
+		if g.MOVE_DURATION > 0 {
+			t = math.min(e.move_timer / g.MOVE_DURATION, 1.0)
+		}
+
+		ease := 1.0 - (1.0 - t) * (1.0 - t)
+		draw_x := math.lerp(f32(e.prev_pos.x), f32(e.pos.x), ease) * TILE_SIZE
+		draw_y := math.lerp(f32(e.prev_pos.y), f32(e.pos.y), ease) * TILE_SIZE
+
+		if e.kind == .key || e.kind == .exit || e.kind == .bone {
+			bob := math.sin(e.anim_timer * 4) * 2
+			draw_y += bob
+		}
+
+		color := entity_color
+		if e.flash_timer > 0 {
+			flash_strength := e.flash_timer / g.FLASH_DURATION
+			color = k2.Color {
+				u8(math.lerp(f32(color.r), 255, flash_strength)),
+				u8(math.lerp(f32(color.g), 255, flash_strength)),
+				u8(math.lerp(f32(color.b), 255, flash_strength)),
+				color.a,
+			}
+		}
+
 		rect := k2.Rect {
-			x = f32(e.pos.x * TILE_SIZE),
-			y = f32(e.pos.y * TILE_SIZE),
+			x = draw_x,
+			y = draw_y,
 			w = TILE_SIZE,
 			h = TILE_SIZE,
 		}
-		k2.draw_rect(rect, entity_color)
+		k2.draw_rect(rect, color)
 	}
 }
 

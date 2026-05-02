@@ -25,7 +25,14 @@ init :: proc(g: ^Game) {
 	start_level(g)
 }
 
-update :: proc(g: ^Game, dt: f32) {}
+update :: proc(g: ^Game, dt: f32) {
+	it := hm.iterator_make(&g.level.entities)
+	for e, _ in hm.iterate(&it) {
+		e.anim_timer += dt
+		if e.move_timer < MOVE_DURATION {e.move_timer += dt}
+		if e.flash_timer > 0 {e.flash_timer -= dt}
+	}
+}
 
 advance :: proc(g: ^Game) {
 	if g.won {
@@ -60,21 +67,18 @@ start_level :: proc(g: ^Game) {
 init_entities :: proc(g: ^Game, player_hp: int) {
 	entrance_candidates := list_walkable_tiles_in_column(&g.level, 0)
 	entrance_pos := entrance_candidates[rand.int_max(len(entrance_candidates))]
-	g.player_handle = hm.add(
-		&g.level.entities,
-		Entity{kind = .player, pos = entrance_pos, hp = player_hp},
-	)
+	g.player_handle = spawn_entity(g, Entity{kind = .player, pos = entrance_pos, hp = player_hp})
 
 	exit_candidates := list_walkable_tiles_in_column(&g.level, g.level.width - 1)
 	exit_pos := exit_candidates[rand.int_max(len(exit_candidates))]
-	_ = hm.add(&g.level.entities, Entity{kind = .exit, pos = exit_pos})
+	spawn_entity(g, Entity{kind = .exit, pos = exit_pos})
 
 	excluded := make([dynamic][2]int, context.temp_allocator)
 	append(&excluded, entrance_pos, exit_pos)
 
 	key_candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
 	key_pos := key_candidates[rand.int_max(len(key_candidates))]
-	_ = hm.add(&g.level.entities, Entity{kind = .key, pos = key_pos})
+	spawn_entity(g, Entity{kind = .key, pos = key_pos})
 	append(&excluded, key_pos)
 
 	// don't spawn enemies right next to the player
@@ -90,7 +94,7 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
 		if len(candidates) == 0 {break}
 		pos := candidates[rand.int_max(len(candidates))]
-		_ = hm.add(&g.level.entities, Entity{kind = .patrol_dog, pos = pos, hp = 1})
+		spawn_entity(g, Entity{kind = .patrol_dog, pos = pos, hp = 1})
 		append(&excluded, pos)
 	}
 
@@ -98,7 +102,7 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
 		if len(candidates) == 0 {break}
 		pos := candidates[rand.int_max(len(candidates))]
-		_ = hm.add(&g.level.entities, Entity{kind = .guard_dog, pos = pos, hp = 2})
+		spawn_entity(g, Entity{kind = .guard_dog, pos = pos, hp = 2})
 		append(&excluded, pos)
 	}
 
@@ -106,10 +110,7 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
 		if len(candidates) == 0 {break}
 		pos := candidates[rand.int_max(len(candidates))]
-		_ = hm.add(
-			&g.level.entities,
-			Entity{kind = .sleeping_dog, pos = pos, hp = 1, is_asleep = true},
-		)
+		spawn_entity(g, Entity{kind = .sleeping_dog, pos = pos, hp = 1, is_asleep = true})
 		append(&excluded, pos)
 	}
 
@@ -117,7 +118,7 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
 		if len(candidates) > 0 {
 			pos := candidates[rand.int_max(len(candidates))]
-			_ = hm.add(&g.level.entities, Entity{kind = .bone, pos = pos})
+			spawn_entity(g, Entity{kind = .bone, pos = pos})
 		}
 	}
 }
@@ -145,6 +146,7 @@ try_act :: proc(g: ^Game, h: EntityHandle, delta: [2]int) -> bool {
 				return false
 			}
 			creature.hp -= 1
+			creature.flash_timer = FLASH_DURATION
 			creature.is_asleep = false
 			fmt.printf("hit %v, hp now %d\n", creature.kind, creature.hp)
 			if creature.hp <= 0 {
@@ -153,7 +155,9 @@ try_act :: proc(g: ^Game, h: EntityHandle, delta: [2]int) -> bool {
 			return true
 		}
 
+		e.prev_pos = e.pos
 		e.pos = target
+		e.move_timer = 0
 		return true
 	}
 	return false
@@ -214,7 +218,7 @@ player_drop_bone :: proc(g: ^Game) {
 	if !ok {return}
 
 	g.bones -= 1
-	_ = hm.add(&g.level.entities, Entity{kind = .bone, pos = player.pos, lifetime = 6})
+	spawn_entity(g, Entity{kind = .bone, pos = player.pos, lifetime = 6})
 
 	enemies_act(g)
 	tick_bones(g)
