@@ -30,11 +30,29 @@ shutdown :: proc(g: ^Game) {
 }
 
 init_entities :: proc(g: ^Game) {
-	g.player_handle = hm.add(&g.level.entities, Entity{kind = .player, pos = {2, 2}, hp = 5})
-	_ = hm.add(&g.level.entities, Entity{kind = .key, pos = {8, 6}})
-	_ = hm.add(&g.level.entities, Entity{kind = .exit, pos = {14, 10}})
-	_ = hm.add(&g.level.entities, Entity{kind = .patrol_dog, pos = {12, 8}, hp = 1})
-	_ = hm.add(&g.level.entities, Entity{kind = .guard_dog, pos = {10, 2}, hp = 2})
+	entrance_candidates := list_walkable_tiles_in_column(&g.level, 1)
+	entrance_pos := entrance_candidates[rand.int_max(len(entrance_candidates))]
+	g.player_handle = hm.add(&g.level.entities, Entity{kind = .player, pos = entrance_pos, hp = 3})
+
+	exit_candidates := list_walkable_tiles_in_column(&g.level, g.level.width - 2)
+	exit_pos := exit_candidates[rand.int_max(len(exit_candidates))]
+	_ = hm.add(&g.level.entities, Entity{kind = .exit, pos = exit_pos})
+
+	excluded := make([dynamic][2]int, context.temp_allocator)
+	append(&excluded, entrance_pos, exit_pos)
+	key_candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
+	key_pos := key_candidates[rand.int_max(len(key_candidates))]
+	_ = hm.add(&g.level.entities, Entity{kind = .key, pos = key_pos})
+
+	append(&excluded, key_pos)
+	dog1_candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
+	dog1_pos := dog1_candidates[rand.int_max(len(dog1_candidates))]
+	_ = hm.add(&g.level.entities, Entity{kind = .patrol_dog, pos = dog1_pos, hp = 1})
+
+	append(&excluded, dog1_pos)
+	dog2_candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
+	dog2_pos := dog2_candidates[rand.int_max(len(dog2_candidates))]
+	_ = hm.add(&g.level.entities, Entity{kind = .guard_dog, pos = dog2_pos, hp = 2})
 }
 
 player_move :: proc(g: ^Game, dir: Direction) {

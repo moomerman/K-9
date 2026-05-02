@@ -60,6 +60,32 @@ has_line_of_sight :: proc(level: ^Level, from, to: [2]int) -> bool {
 	return true
 }
 
+list_walkable_tiles_in_column :: proc(level: ^Level, x: int) -> [][2]int {
+	candidates := make([dynamic][2]int, context.temp_allocator)
+	for y in 0 ..< level.height {
+		pos := [2]int{x, y}
+		if is_walkable(level, pos) {
+			append(&candidates, pos)
+		}
+	}
+	return candidates[:]
+}
+
+list_walkable_tiles_excluding :: proc(level: ^Level, excluded: [][2]int) -> [][2]int {
+	candidates := make([dynamic][2]int, context.temp_allocator)
+	outer: for y in 0 ..< level.height {
+		for x in 0 ..< level.width {
+			pos := [2]int{x, y}
+			if !is_walkable(level, pos) {continue}
+			for ex in excluded {
+				if ex == pos {continue outer}
+			}
+			append(&candidates, pos)
+		}
+	}
+	return candidates[:]
+}
+
 is_walkable :: proc(level: ^Level, pos: [2]int) -> bool {
 	if pos.x < 0 || pos.x >= level.width || pos.y < 0 || pos.y >= level.height {
 		return false
