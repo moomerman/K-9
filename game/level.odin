@@ -14,6 +14,31 @@ Level :: struct {
 	has_key:       bool,
 }
 
+parse_level_from_strings :: proc(rows: []string) -> Level {
+	height := len(rows)
+	width := len(rows[0])
+
+	level := Level {
+		width  = width,
+		height = height,
+		tiles  = make([]Tile, width * height),
+	}
+	hm.dynamic_init(&level.entities, context.allocator)
+
+	for row, y in rows {
+		for ch, x in row {
+			switch ch {
+			case '#':
+				level.tiles[y * width + x] = .wall
+			case '.':
+				level.tiles[y * width + x] = .floor
+			}
+		}
+	}
+
+	return level
+}
+
 has_line_of_sight :: proc(level: ^Level, from, to: [2]int) -> bool {
 	if from.x != to.x && from.y != to.y {return false}
 

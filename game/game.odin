@@ -41,7 +41,8 @@ init :: proc(g: ^Game) {
 		hp   = 9,
 	}
 
-	hm.dynamic_init(&g.level.entities, context.allocator)
+	g.level = parse_level_from_strings(LEVEL_1[:])
+
 	handle := hm.add(&g.level.entities, player)
 	if e, ok := hm.get(&g.level.entities, handle); ok {
 		e.handle = handle
@@ -77,17 +78,6 @@ init :: proc(g: ^Game) {
 	}
 	guard_h := hm.add(&g.level.entities, guard)
 	if e, ok := hm.get(&g.level.entities, guard_h); ok {e.handle = guard_h}
-
-	g.level.width = 16
-	g.level.height = 12
-	g.level.tiles = make([]Tile, g.level.width * g.level.height)
-	for y in 0 ..< g.level.height {
-		for x in 0 ..< g.level.width {
-			if x == 0 || y == 0 || x == g.level.width - 1 || y == g.level.height - 1 {
-				g.level.tiles[y * g.level.width + x] = .wall
-			}
-		}
-	}
 }
 
 update :: proc(g: ^Game, dt: f32) {}
