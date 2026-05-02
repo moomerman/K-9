@@ -156,7 +156,7 @@ try_act :: proc(g: ^Game, h: EntityHandle, delta: [2]int) -> bool {
 		}
 
 		if creature, creature_h, found := creature_at(g, target); found {
-			if creature.kind == e.kind {
+			if is_enemy(creature.kind) && is_enemy(e.kind) {
 				return false
 			}
 			creature.hp -= 1
