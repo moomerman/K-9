@@ -17,6 +17,7 @@ music: k2.Audio_Stream
 init :: proc() {
 	k2.init(1000, 600, "K-9", {window_mode = .Windowed_Resizable})
 	assets.load_sounds()
+	assets.load_textures()
 	music = assets.load_music(assets.level_music)
 	k2.play_audio_stream(music)
 	g.init(&game)
@@ -131,8 +132,6 @@ draw_level :: proc() {
 draw_entity :: proc(e: ^g.Entity) {
 	entity_color: k2.Color
 	switch e.kind {
-	case .player:
-		entity_color = k2.YELLOW
 	case .key:
 		entity_color = k2.WHITE
 	case .exit:
@@ -142,18 +141,9 @@ draw_entity :: proc(e: ^g.Entity) {
 		} else {
 			entity_color = k2.Color{0, 100, 0, 255}
 		}
-	case .patrol_dog:
-		entity_color = k2.RED
-	case .guard_dog:
-		entity_color = k2.ORANGE
-	case .sleeping_dog:
-		if e.is_asleep {
-			entity_color = k2.Color{120, 80, 200, 255}
-		} else {
-			entity_color = k2.Color{180, 60, 220, 255}
-		}
 	case .bone:
 		entity_color = k2.BLUE
+	case .player, .patrol_dog, .guard_dog, .sleeping_dog:
 	}
 
 	t := f32(0)
@@ -170,24 +160,34 @@ draw_entity :: proc(e: ^g.Entity) {
 		draw_y += bob
 	}
 
-	color := entity_color
-	if e.flash_timer > 0 {
-		flash_strength := e.flash_timer / g.FLASH_DURATION
-		color = k2.Color {
-			u8(math.lerp(f32(color.r), 255, flash_strength)),
-			u8(math.lerp(f32(color.g), 255, flash_strength)),
-			u8(math.lerp(f32(color.b), 255, flash_strength)),
-			color.a,
+	if source, has_sprite := sprite_source(e); has_sprite {
+		flash_grow := f32(0)
+		tint := k2.WHITE
+		if e.flash_timer > 0 {
+			flash_grow = 4
+			tint = k2.Color{255, 100, 100, 255}
 		}
-	}
 
-	rect := k2.Rect {
-		x = draw_x,
-		y = draw_y,
-		w = TILE_SIZE,
-		h = TILE_SIZE,
+		dest := k2.Rect {
+			x = draw_x - flash_grow,
+			y = draw_y - flash_grow,
+			w = TILE_SIZE + flash_grow * 2,
+			h = TILE_SIZE + flash_grow * 2,
+		}
+		k2.draw_texture_fit(assets.sprites, source, dest, tint = tint)
+	} else {
+		color := entity_color
+		if e.flash_timer > 0 {
+			color = k2.WHITE
+		}
+		rect := k2.Rect {
+			x = draw_x,
+			y = draw_y,
+			w = TILE_SIZE,
+			h = TILE_SIZE,
+		}
+		k2.draw_rect(rect, color)
 	}
-	k2.draw_rect(rect, color)
 }
 
 draw_hud :: proc() {
@@ -243,6 +243,26 @@ play_event_sounds :: proc() {
 	clear(&game.events)
 }
 
+sprite_source :: proc(e: ^g.Entity) -> (k2.Rect, bool) {
+	SPRITE :: 16
+	switch e.kind {
+	case .player:
+		return k2.Rect{0, 0, SPRITE, SPRITE}, true
+	case .patrol_dog:
+		return k2.Rect{16, 0, SPRITE, SPRITE}, true
+	case .guard_dog:
+		return k2.Rect{32, 0, SPRITE, SPRITE}, true
+	case .sleeping_dog:
+		if e.is_asleep {
+			return k2.Rect{64, 0, SPRITE, SPRITE}, true
+		} else {
+			return k2.Rect{48, 0, SPRITE, SPRITE}, true
+		}
+	case .key, .exit, .bone:
+		return {}, false
+	}
+	return {}, false
+}
 
 shutdown :: proc() {
 	g.shutdown(&game)
