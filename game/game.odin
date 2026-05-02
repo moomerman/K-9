@@ -1,7 +1,6 @@
 package game
 
 import hm "core:container/handle_map"
-import "core:fmt"
 import "core:math/rand"
 
 Direction :: enum {
@@ -103,29 +102,9 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 	guard_count := (g.level_number + 1) / 2
 	sleeper_count := g.level_number / 2
 
-	for _ in 0 ..< patrol_count {
-		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
-		if len(candidates) == 0 {break}
-		pos := candidates[rand.int_max(len(candidates))]
-		spawn_entity(g, Entity{kind = .patrol_dog, pos = pos, hp = 1})
-		append(&excluded, pos)
-	}
-
-	for _ in 0 ..< guard_count {
-		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
-		if len(candidates) == 0 {break}
-		pos := candidates[rand.int_max(len(candidates))]
-		spawn_entity(g, Entity{kind = .guard_dog, pos = pos, hp = 2})
-		append(&excluded, pos)
-	}
-
-	for _ in 0 ..< sleeper_count {
-		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
-		if len(candidates) == 0 {break}
-		pos := candidates[rand.int_max(len(candidates))]
-		spawn_entity(g, Entity{kind = .sleeping_dog, pos = pos, hp = 1, is_asleep = true})
-		append(&excluded, pos)
-	}
+	spawn_enemies(g, .patrol_dog, patrol_count, 1, false, &excluded)
+	spawn_enemies(g, .guard_dog, guard_count, 2, false, &excluded)
+	spawn_enemies(g, .sleeping_dog, sleeper_count, 1, true, &excluded)
 
 	if rand.float32() < 0.3 {
 		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
@@ -133,6 +112,22 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 			pos := candidates[rand.int_max(len(candidates))]
 			spawn_entity(g, Entity{kind = .bone, pos = pos})
 		}
+	}
+}
+
+spawn_enemies :: proc(
+	g: ^Game,
+	kind: EntityKind,
+	count, hp: int,
+	asleep: bool,
+	excluded: ^[dynamic][2]int,
+) {
+	for _ in 0 ..< count {
+		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
+		if len(candidates) == 0 {break}
+		pos := candidates[rand.int_max(len(candidates))]
+		spawn_entity(g, Entity{kind = kind, pos = pos, hp = hp, is_asleep = asleep})
+		append(excluded, pos)
 	}
 }
 
@@ -159,13 +154,13 @@ try_act :: proc(g: ^Game, h: EntityHandle, delta: [2]int) -> bool {
 			if is_enemy(creature.kind) && is_enemy(e.kind) {
 				return false
 			}
+			append(&g.events, GameEvent.attack_landed)
 			creature.hp -= 1
 			creature.flash_timer = FLASH_DURATION
 			if creature.kind == .player {
 				append(&g.events, GameEvent.player_damaged)
 			}
 			creature.is_asleep = false
-			fmt.printf("hit %v, hp now %d\n", creature.kind, creature.hp)
 			if creature.hp <= 0 {
 				if creature.kind == .player {
 					append(&g.events, GameEvent.player_died)
