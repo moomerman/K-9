@@ -11,23 +11,6 @@ Direction :: enum {
 	west,
 }
 
-EntityHandle :: hm.Handle32
-
-EntityKind :: enum {
-	player,
-	key,
-	exit,
-	patrol_dog,
-	guard_dog,
-}
-
-Entity :: struct {
-	handle: EntityHandle,
-	kind:   EntityKind,
-	pos:    [2]int,
-	hp:     int,
-}
-
 Game :: struct {
 	level:         Level,
 	player_handle: EntityHandle,
@@ -35,49 +18,8 @@ Game :: struct {
 }
 
 init :: proc(g: ^Game) {
-	player := Entity {
-		kind = .player,
-		pos  = {2, 2},
-		hp   = 9,
-	}
-
 	g.level = parse_level_from_strings(LEVEL_1[:])
-
-	handle := hm.add(&g.level.entities, player)
-	if e, ok := hm.get(&g.level.entities, handle); ok {
-		e.handle = handle
-	}
-	g.player_handle = handle
-
-	key := Entity {
-		kind = .key,
-		pos  = {8, 6},
-	}
-	key_h := hm.add(&g.level.entities, key)
-	if e, ok := hm.get(&g.level.entities, key_h); ok {e.handle = key_h}
-
-	exit := Entity {
-		kind = .exit,
-		pos  = {14, 10},
-	}
-	exit_h := hm.add(&g.level.entities, exit)
-	if e, ok := hm.get(&g.level.entities, exit_h); ok {e.handle = exit_h}
-
-	patrol := Entity {
-		kind = .patrol_dog,
-		pos  = {12, 8},
-		hp   = 2,
-	}
-	patrol_h := hm.add(&g.level.entities, patrol)
-	if e, ok := hm.get(&g.level.entities, patrol_h); ok {e.handle = patrol_h}
-
-	guard := Entity {
-		kind = .guard_dog,
-		pos  = {10, 2},
-		hp   = 2,
-	}
-	guard_h := hm.add(&g.level.entities, guard)
-	if e, ok := hm.get(&g.level.entities, guard_h); ok {e.handle = guard_h}
+	init_entities(g)
 }
 
 update :: proc(g: ^Game, dt: f32) {}
@@ -85,6 +27,14 @@ update :: proc(g: ^Game, dt: f32) {}
 shutdown :: proc(g: ^Game) {
 	hm.dynamic_destroy(&g.level.entities)
 	delete(g.level.tiles)
+}
+
+init_entities :: proc(g: ^Game) {
+	g.player_handle = hm.add(&g.level.entities, Entity{kind = .player, pos = {2, 2}, hp = 5})
+	_ = hm.add(&g.level.entities, Entity{kind = .key, pos = {8, 6}})
+	_ = hm.add(&g.level.entities, Entity{kind = .exit, pos = {14, 10}})
+	_ = hm.add(&g.level.entities, Entity{kind = .patrol_dog, pos = {12, 8}, hp = 1})
+	_ = hm.add(&g.level.entities, Entity{kind = .guard_dog, pos = {10, 2}, hp = 2})
 }
 
 player_move :: proc(g: ^Game, dir: Direction) {
@@ -149,14 +99,6 @@ creature_at :: proc(g: ^Game, pos: [2]int) -> (^Entity, EntityHandle, bool) {
 		}
 	}
 	return nil, {}, false
-}
-
-is_creature :: proc(k: EntityKind) -> bool {
-	return k == .player || is_enemy(k)
-}
-
-is_enemy :: proc(k: EntityKind) -> bool {
-	return k == .patrol_dog || k == .guard_dog
 }
 
 dir_to_delta :: proc(dir: Direction) -> [2]int {
