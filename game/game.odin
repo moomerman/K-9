@@ -23,6 +23,7 @@ EntityKind :: enum {
 	key,
 	exit,
 	patrol_dog,
+	guard_dog,
 }
 
 Entity :: struct {
@@ -73,13 +74,21 @@ init :: proc(g: ^Game) {
 	exit_h := hm.add(&g.level.entities, exit)
 	if e, ok := hm.get(&g.level.entities, exit_h); ok {e.handle = exit_h}
 
-	dog := Entity {
+	patrol := Entity {
 		kind = .patrol_dog,
 		pos  = {12, 8},
 		hp   = 2,
 	}
-	dog_h := hm.add(&g.level.entities, dog)
-	if e, ok := hm.get(&g.level.entities, dog_h); ok {e.handle = dog_h}
+	patrol_h := hm.add(&g.level.entities, patrol)
+	if e, ok := hm.get(&g.level.entities, patrol_h); ok {e.handle = patrol_h}
+
+	guard := Entity {
+		kind = .guard_dog,
+		pos  = {10, 2},
+		hp   = 2,
+	}
+	guard_h := hm.add(&g.level.entities, guard)
+	if e, ok := hm.get(&g.level.entities, guard_h); ok {e.handle = guard_h}
 
 	g.level.width = 16
 	g.level.height = 12
@@ -160,8 +169,7 @@ on_player_entered_tile :: proc(g: ^Game) {
 				g.won = true
 				fmt.println("WON!")
 			}
-		case .player:
-		case .patrol_dog:
+		case .player, .patrol_dog, .guard_dog:
 		}
 	}
 }
@@ -177,7 +185,11 @@ creature_at :: proc(g: ^Game, pos: [2]int) -> (^Entity, EntityHandle, bool) {
 }
 
 is_creature :: proc(k: EntityKind) -> bool {
-	return k == .player || k == .patrol_dog
+	return k == .player || is_enemy(k)
+}
+
+is_enemy :: proc(k: EntityKind) -> bool {
+	return k == .patrol_dog || k == .guard_dog
 }
 
 dir_to_delta :: proc(dir: Direction) -> [2]int {
@@ -200,14 +212,21 @@ enemies_act :: proc(g: ^Game) {
 
 	it := hm.iterator_make(&g.level.entities)
 	for e, h in hm.iterate(&it) {
-		if e.kind == .patrol_dog {
+		if is_enemy(e.kind) {
 			append(&handles, h)
 		}
 	}
 
 	for h in handles {
 		if !hm.is_valid(&g.level.entities, h) {continue}
-		patrol_dog_act(g, h)
+		e, _ := hm.get(&g.level.entities, h)
+		switch e.kind {
+		case .patrol_dog:
+			patrol_dog_act(g, h)
+		case .guard_dog:
+			guard_dog_act(g, h)
+		case .player, .key, .exit:
+		}
 	}
 }
 
@@ -215,4 +234,44 @@ patrol_dog_act :: proc(g: ^Game, h: EntityHandle) {
 	deltas := [4][2]int{{0, -1}, {0, 1}, {-1, 0}, {1, 0}}
 	d := deltas[rand.int_max(4)]
 	try_act(g, h, d)
+}
+
+guard_dog_act :: proc(g: ^Game, h: EntityHandle) {
+	dog, ok := hm.get(&g.level.entities, h)
+	if !ok {return}
+	player, p_ok := hm.get(&g.level.entities, g.player_handle)
+	if !p_ok {return}
+
+	if !has_line_of_sight(&g.level, dog.pos, player.pos) {
+		return
+	}
+
+	step: [2]int
+	if dog.pos.x == player.pos.x {
+		step.y = player.pos.y > dog.pos.y ? 1 : -1
+	} else {
+		step.x = player.pos.x > dog.pos.x ? 1 : -1
+	}
+	try_act(g, h, step)
+}
+
+has_line_of_sight :: proc(level: ^Level, from, to: [2]int) -> bool {
+	if from.x != to.x && from.y != to.y {return false}
+
+	step: [2]int
+	if from.x == to.x {
+		step.y = to.y > from.y ? 1 : -1
+	} else {
+		step.x = to.x > from.x ? 1 : -1
+	}
+
+	pos := from + step
+	for pos != to {
+		if level.tiles[pos.y * level.width + pos.x] == .wall {
+			return false
+		}
+		pos += step
+	}
+
+	return true
 }
