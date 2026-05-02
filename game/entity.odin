@@ -11,6 +11,7 @@ EntityKind :: enum {
 	patrol_dog,
 	guard_dog,
 	sleeping_dog,
+	bone,
 }
 
 Entity :: struct {
@@ -20,6 +21,7 @@ Entity :: struct {
 	chase_dir: [2]int,
 	hp:        int,
 	is_asleep: bool,
+	lifetime:  int,
 }
 
 is_creature :: proc(k: EntityKind) -> bool {

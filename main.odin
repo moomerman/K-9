@@ -53,6 +53,8 @@ handle_input :: proc() {
 			g.player_move(&game, .west)
 		} else if k2.key_went_down(.Right) {
 			g.player_move(&game, .east)
+		} else if k2.key_went_down(.N1) {
+			g.player_drop_bone(&game)
 		}
 	}
 }
@@ -129,6 +131,8 @@ draw_game :: proc() {
 			} else {
 				entity_color = k2.Color{180, 60, 220, 255}
 			}
+		case .bone:
+			entity_color = k2.BLUE
 		}
 		rect := k2.Rect {
 			x = f32(e.pos.x * TILE_SIZE),
@@ -144,6 +148,11 @@ draw_hud :: proc() {
 	player_hp := g.get_entity_hp(&game, game.player_handle)
 	hud_text := fmt.tprintf("LEVEL %d   HP %d", game.level_number, player_hp)
 	k2.draw_text(hud_text, {16, 16}, 24, k2.WHITE)
+
+	if game.bones > 0 {
+		inv := fmt.tprintf("1. Bones: %d", game.bones)
+		k2.draw_text(inv, {16, 48}, 24, k2.WHITE)
+	}
 }
 
 draw_overlay :: proc() {

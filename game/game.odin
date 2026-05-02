@@ -15,6 +15,7 @@ Game :: struct {
 	level:         Level,
 	player_handle: EntityHandle,
 	level_number:  int,
+	bones:         int,
 	won, lost:     bool,
 }
 
@@ -111,6 +112,14 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 		)
 		append(&excluded, pos)
 	}
+
+	if rand.float32() < 0.3 {
+		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
+		if len(candidates) > 0 {
+			pos := candidates[rand.int_max(len(candidates))]
+			_ = hm.add(&g.level.entities, Entity{kind = .bone, pos = pos})
+		}
+	}
 }
 
 player_move :: proc(g: ^Game, dir: Direction) {
@@ -166,6 +175,9 @@ on_player_entered_tile :: proc(g: ^Game) {
 			if g.level.has_key {
 				g.won = true
 			}
+		case .bone:
+			g.bones += 1
+			hm.remove(&g.level.entities, h)
 		case .player, .patrol_dog, .guard_dog, .sleeping_dog:
 		}
 	}
@@ -196,6 +208,38 @@ dir_to_delta :: proc(dir: Direction) -> [2]int {
 	return delta
 }
 
+player_drop_bone :: proc(g: ^Game) {
+	if g.bones <= 0 {return}
+	player, ok := hm.get(&g.level.entities, g.player_handle)
+	if !ok {return}
+
+	g.bones -= 1
+	_ = hm.add(&g.level.entities, Entity{kind = .bone, pos = player.pos, lifetime = 6})
+
+	enemies_act(g)
+	tick_bones(g)
+
+	if !hm.is_valid(&g.level.entities, g.player_handle) {
+		g.lost = true
+	}
+}
+
+tick_bones :: proc(g: ^Game) {
+	handles := make([dynamic]EntityHandle, context.temp_allocator)
+	it := hm.iterator_make(&g.level.entities)
+	for e, h in hm.iterate(&it) {
+		if e.kind != .bone {continue}
+		if e.lifetime <= 0 {continue}
+		e.lifetime -= 1
+		if e.lifetime <= 0 {
+			append(&handles, h)
+		}
+	}
+	for h in handles {
+		hm.remove(&g.level.entities, h)
+	}
+}
+
 enemies_act :: proc(g: ^Game) {
 	handles := make([dynamic]EntityHandle, context.temp_allocator)
 
@@ -216,7 +260,7 @@ enemies_act :: proc(g: ^Game) {
 			guard_dog_act(g, h)
 		case .sleeping_dog:
 			sleeping_dog_act(g, h)
-		case .player, .key, .exit:
+		case .player, .key, .exit, .bone:
 		}
 	}
 }
@@ -246,26 +290,7 @@ patrol_dog_act :: proc(g: ^Game, h: EntityHandle) {
 }
 
 guard_dog_act :: proc(g: ^Game, h: EntityHandle) {
-	dog, ok := hm.get(&g.level.entities, h)
-	if !ok {return}
-	player, p_ok := hm.get(&g.level.entities, g.player_handle)
-	if !p_ok {return}
-
-	if has_line_of_sight(&g.level, dog.pos, player.pos) {
-		step: [2]int
-		if dog.pos.x == player.pos.x {
-			step.y = player.pos.y > dog.pos.y ? 1 : -1
-		} else {
-			step.x = player.pos.x > dog.pos.x ? 1 : -1
-		}
-		dog.chase_dir = step
-	}
-
-	if dog.chase_dir != {0, 0} {
-		if !try_act(g, h, dog.chase_dir) {
-			dog.chase_dir = {}
-		}
-	}
+	chase_target(g, h)
 }
 
 sleeping_dog_act :: proc(g: ^Game, h: EntityHandle) {
@@ -283,12 +308,27 @@ sleeping_dog_act :: proc(g: ^Game, h: EntityHandle) {
 		}
 	}
 
-	if has_line_of_sight(&g.level, dog.pos, player.pos) {
+	chase_target(g, h)
+}
+
+chase_target :: proc(g: ^Game, h: EntityHandle) {
+	dog, ok := hm.get(&g.level.entities, h)
+	if !ok {return}
+
+	// consume bone
+	if bone_h, found := bone_at(g, dog.pos); found {
+		hm.remove(&g.level.entities, bone_h)
+		dog.chase_dir = {}
+		return
+	}
+
+	target_pos, found := find_chase_target(g, dog.pos)
+	if found {
 		step: [2]int
-		if dog.pos.x == player.pos.x {
-			step.y = player.pos.y > dog.pos.y ? 1 : -1
+		if dog.pos.x == target_pos.x {
+			step.y = target_pos.y > dog.pos.y ? 1 : -1
 		} else {
-			step.x = player.pos.x > dog.pos.x ? 1 : -1
+			step.x = target_pos.x > dog.pos.x ? 1 : -1
 		}
 		dog.chase_dir = step
 	}
@@ -298,4 +338,43 @@ sleeping_dog_act :: proc(g: ^Game, h: EntityHandle) {
 			dog.chase_dir = {}
 		}
 	}
+}
+
+find_chase_target :: proc(g: ^Game, from: [2]int) -> ([2]int, bool) {
+	// chase bones
+	nearest_pos: [2]int
+	nearest_dist := max(int)
+	found := false
+
+	it := hm.iterator_make(&g.level.entities)
+	for e, _ in hm.iterate(&it) {
+		if e.kind != .bone {continue}
+		if !has_line_of_sight(&g.level, from, e.pos) {continue}
+		diff := e.pos - from
+		dist := abs(diff.x) + abs(diff.y)
+		if dist < nearest_dist {
+			nearest_dist = dist
+			nearest_pos = e.pos
+			found = true
+		}
+	}
+	if found {return nearest_pos, true}
+
+	// chase player
+	player, p_ok := hm.get(&g.level.entities, g.player_handle)
+	if !p_ok {return {}, false}
+	if has_line_of_sight(&g.level, from, player.pos) {
+		return player.pos, true
+	}
+	return {}, false
+}
+
+bone_at :: proc(g: ^Game, pos: [2]int) -> (EntityHandle, bool) {
+	it := hm.iterator_make(&g.level.entities)
+	for e, h in hm.iterate(&it) {
+		if e.kind == .bone && e.pos == pos {
+			return h, true
+		}
+	}
+	return {}, false
 }
