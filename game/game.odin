@@ -311,14 +311,8 @@ patrol_dog_act :: proc(g: ^Game, h: EntityHandle) {
 
 	diff := player.pos - dog.pos
 	manhattan := abs(diff.x) + abs(diff.y)
-	if manhattan <= 3 {
-		step: [2]int
-		if abs(diff.x) >= abs(diff.y) {
-			step.x = diff.x > 0 ? 1 : -1
-		} else {
-			step.y = diff.y > 0 ? 1 : -1
-		}
-		try_act(g, h, step)
+	if manhattan == 1 {
+		try_act(g, h, diff)
 		return
 	}
 
