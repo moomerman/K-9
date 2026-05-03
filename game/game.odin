@@ -347,10 +347,16 @@ chase_target :: proc(g: ^Game, h: EntityHandle) {
 	dog, ok := hm.get(&g.level.entities, h)
 	if !ok {return}
 
+	if dog.distracted > 0 {
+		dog.distracted -= 1
+		return
+	}
+
 	// consume bone
 	if bone_h, found := bone_at(g, dog.pos); found {
 		hm.remove(&g.level.entities, bone_h)
 		dog.chase_dir = {}
+		dog.distracted = DISTRACTED_TURNS_AFTER_BONE
 		return
 	}
 

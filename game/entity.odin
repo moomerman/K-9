@@ -4,6 +4,7 @@ import hm "core:container/handle_map"
 
 MOVE_DURATION :: 0.15
 FLASH_DURATION :: 0.25
+DISTRACTED_TURNS_AFTER_BONE :: 3
 
 EntityHandle :: hm.Handle32
 
@@ -27,6 +28,7 @@ Entity :: struct {
 	hp:          int,
 	is_asleep:   bool,
 	lifetime:    int,
+	distracted:  int,
 	move_timer:  f32,
 	flash_timer: f32,
 	anim_timer:  f32,
