@@ -120,9 +120,20 @@ draw_title :: proc() {
 	sw := f32(k2.get_screen_width())
 	sh := f32(k2.get_screen_height())
 
-	title := "K-9"
-	title_size := k2.measure_text(title, 96)
-	k2.draw_text(title, {(sw - title_size.x) / 2, sh * 0.18}, 96, k2.WHITE)
+	LOGO_SOURCE :: k2.Rect{0, 32, 32, 16}
+
+	logo_scale := math.floor(sh / 150)
+	if logo_scale < 4 {logo_scale = 4}
+	logo_w := 32 * logo_scale
+	logo_h := 16 * logo_scale
+
+	logo_dest := k2.Rect {
+		x = (sw - logo_w) / 2,
+		y = sh * 0.15,
+		w = logo_w,
+		h = logo_h,
+	}
+	k2.draw_texture_fit(assets.sprites, LOGO_SOURCE, logo_dest)
 
 	prompt := "PRESS SPACE TO START"
 	p_size := k2.measure_text(prompt, 32)
