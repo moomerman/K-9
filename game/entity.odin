@@ -15,6 +15,7 @@ EntityKind :: enum {
 	guard_dog,
 	sleeping_dog,
 	bone,
+	fish,
 }
 
 Entity :: struct {

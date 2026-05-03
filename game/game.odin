@@ -16,6 +16,7 @@ Game :: struct {
 	events:        [dynamic]GameEvent,
 	level_number:  int,
 	bones:         int,
+	fish:          int,
 	won, lost:     bool,
 }
 
@@ -113,6 +114,15 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 			spawn_entity(g, Entity{kind = .bone, pos = pos})
 		}
 	}
+
+	if rand.float32() < 0.3 {
+		candidates := list_walkable_tiles_excluding(&g.level, excluded[:])
+		if len(candidates) > 0 {
+			pos := candidates[rand.int_max(len(candidates))]
+			spawn_entity(g, Entity{kind = .fish, pos = pos})
+			append(&excluded, pos)
+		}
+	}
 }
 
 spawn_enemies :: proc(
@@ -202,6 +212,10 @@ on_player_entered_tile :: proc(g: ^Game) {
 			g.bones += 1
 			append(&g.events, GameEvent.pickup)
 			hm.remove(&g.level.entities, h)
+		case .fish:
+			g.fish += 1
+			append(&g.events, GameEvent.pickup)
+			hm.remove(&g.level.entities, h)
 		case .player, .patrol_dog, .guard_dog, .sleeping_dog:
 		}
 	}
@@ -284,7 +298,7 @@ enemies_act :: proc(g: ^Game) {
 			guard_dog_act(g, h)
 		case .sleeping_dog:
 			sleeping_dog_act(g, h)
-		case .player, .key, .exit, .bone:
+		case .player, .key, .exit, .bone, .fish:
 		}
 	}
 }
@@ -401,4 +415,22 @@ bone_at :: proc(g: ^Game, pos: [2]int) -> (EntityHandle, bool) {
 		}
 	}
 	return {}, false
+}
+
+player_use_fish :: proc(g: ^Game) {
+	if g.fish <= 0 {return}
+	player, ok := hm.get(&g.level.entities, g.player_handle)
+	if !ok {return}
+	if player.hp >= 9 {return}
+
+	g.fish -= 1
+	player.hp = min(player.hp + 2, 9)
+	append(&g.events, GameEvent.pickup)
+
+	enemies_act(g)
+	tick_bones(g)
+
+	if !hm.is_valid(&g.level.entities, g.player_handle) {
+		g.lost = true
+	}
 }

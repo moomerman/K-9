@@ -109,7 +109,10 @@ handle_input :: proc() {
 				g.player_move(&game, .east)
 			} else if k2.key_went_down(.N1) {
 				g.player_drop_bone(&game)
-			}}
+			} else if k2.key_went_down(.N2) {
+				g.player_use_fish(&game)
+			}
+		}
 	}
 }
 
@@ -209,7 +212,7 @@ draw_entity :: proc(e: ^g.Entity) {
 	draw_y := math.lerp(f32(e.prev_pos.y), f32(e.pos.y), ease) * TILE_SIZE
 
 	// bob items (not exit — it has its own animation; not creatures)
-	if e.kind == .key || e.kind == .bone {
+	if e.kind == .key || e.kind == .bone || e.kind == .fish {
 		draw_y += math.sin(e.anim_timer * 4) * 2
 	}
 
@@ -244,6 +247,9 @@ draw_hud :: proc() {
 	if game.bones > 0 {
 		inv := fmt.tprintf("1. Bones: %d", game.bones)
 		k2.draw_text(inv, {16, 48}, 24, k2.WHITE)
+	}
+	if game.fish > 0 {
+		k2.draw_text(fmt.tprintf("2. Fish: %d", game.fish), {16, 80}, 24, k2.WHITE)
 	}
 }
 
@@ -303,6 +309,8 @@ sprite_source :: proc(e: ^g.Entity) -> (k2.Rect, bool) {
 		return k2.Rect{f32(col * SPRITE), 0, SPRITE, SPRITE}, true
 	case .bone:
 		return k2.Rect{0, SPRITE, SPRITE, SPRITE}, true
+	case .fish:
+		return k2.Rect{4 * SPRITE, SPRITE, SPRITE, SPRITE}, true
 	case .key:
 		return k2.Rect{1 * SPRITE, SPRITE, SPRITE, SPRITE}, true
 	case .exit:
