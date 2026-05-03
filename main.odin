@@ -28,7 +28,7 @@ init :: proc() {
 	k2.init(1000, 600, "K-9", {window_mode = .Windowed_Resizable})
 	assets.load_sounds()
 	assets.load_textures()
-	music = assets.load_music(assets.level_music)
+	music = assets.load_music(assets.title_music)
 	k2.play_audio_stream(music)
 }
 
@@ -37,6 +37,9 @@ start_run :: proc() {
 	g.init(&game)
 	game_initialized = true
 	state = .playing
+	k2.stop_audio_stream(music)
+	music = assets.load_music(assets.level_music)
+	k2.play_audio_stream(music)
 }
 
 end_run :: proc() {
@@ -48,6 +51,9 @@ end_run :: proc() {
 	g.shutdown(&game)
 	game_initialized = false
 	state = .title
+	k2.stop_audio_stream(music)
+	music = assets.load_music(assets.title_music)
+	k2.play_audio_stream(music)
 }
 
 step :: proc() -> bool {
@@ -74,6 +80,7 @@ step :: proc() -> bool {
 		case .playing:
 			draw_game()
 			draw_hud()
+			draw_inventory()
 			draw_overlay()
 		}
 		k2.present()
@@ -254,13 +261,71 @@ draw_hud :: proc() {
 	player_hp := g.get_entity_hp(&game, game.player_handle)
 	hud_text := fmt.tprintf("LEVEL %d   HP %d", game.level_number, player_hp)
 	k2.draw_text(hud_text, {16, 16}, 24, k2.WHITE)
+}
 
-	if game.bones > 0 {
-		inv := fmt.tprintf("1. Bones: %d", game.bones)
-		k2.draw_text(inv, {16, 48}, 24, k2.WHITE)
+INVENTORY_SLOTS :: [?]struct {
+	kind: g.EntityKind,
+	key:  string,
+}{{.bone, "1"}, {.fish, "2"}}
+
+inventory_count :: proc(kind: g.EntityKind) -> int {
+	#partial switch kind {
+	case .bone:
+		return game.bones
+	case .fish:
+		return game.fish
+	case:
+		return 0
 	}
-	if game.fish > 0 {
-		k2.draw_text(fmt.tprintf("2. Fish: %d", game.fish), {16, 80}, 24, k2.WHITE)
+}
+
+inventory_sprite :: proc(kind: g.EntityKind) -> k2.Rect {
+	SPRITE :: f32(16)
+	#partial switch kind {
+	case .bone:
+		return k2.Rect{0, SPRITE, SPRITE, SPRITE}
+	case .fish:
+		return k2.Rect{4 * SPRITE, SPRITE, SPRITE, SPRITE}
+	}
+	return {}
+}
+
+draw_inventory :: proc() {
+	sh := f32(k2.get_screen_height())
+
+	slot := math.floor(sh / 12) // ~90 at 1080p, ~60 at 720p
+	if slot < 48 {slot = 48}
+	gap := slot * 0.25
+	base_x := f32(20)
+	base_y := sh - slot - 36 // leave room for label row beneath
+
+	for entry, i in INVENTORY_SLOTS {
+		x := base_x + f32(i) * (slot + gap)
+		count := inventory_count(entry.kind)
+
+		k2.draw_rect_outline({x, base_y, slot, slot}, 2, k2.GRAY)
+
+		tint := k2.WHITE if count > 0 else k2.Color{80, 80, 80, 255}
+		k2.draw_texture_fit(
+			assets.sprites,
+			inventory_sprite(entry.kind),
+			{x + 4, base_y + 4, slot - 8, slot - 8},
+			tint = tint,
+		)
+
+		font_small := slot * 0.30
+		k2.draw_text(entry.key, {x + 4, base_y + 2}, font_small, k2.YELLOW)
+
+		if count > 0 {
+			count_text := fmt.tprintf("x%d", count)
+			ts := k2.measure_text(count_text, font_small)
+			k2.draw_text(
+				count_text,
+				{x + slot - ts.x - 4, base_y + slot + 4},
+				font_small,
+				k2.WHITE,
+			)
+		}
 	}
 }
 

@@ -4,13 +4,14 @@ import k2 "../.deps/github.com/karl-zylinski/karl2d"
 
 SFX_VOLUME :: 0.5
 
+title_music := #load("music/title.ogg")
 level_music := #load("music/level.ogg")
 sprites: k2.Texture
 
 load_music :: proc(bytes: []u8) -> k2.Audio_Stream {
 	music := k2.load_audio_stream_from_bytes(bytes)
 	k2.set_audio_stream_loop(music, true)
-	k2.set_audio_stream_volume(music, 0.15)
+	k2.set_audio_stream_volume(music, 0.30)
 	return music
 }
 

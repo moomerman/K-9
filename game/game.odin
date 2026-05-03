@@ -80,7 +80,6 @@ start_level :: proc(g: ^Game) {
 init_entities :: proc(g: ^Game, player_hp: int) {
 	entrance_candidates := list_walkable_tiles_in_column(&g.level, 0)
 	entrance_pos := entrance_candidates[rand.int_max(len(entrance_candidates))]
-	g.player_handle = spawn_entity(g, Entity{kind = .player, pos = entrance_pos, hp = player_hp})
 
 	exit_candidates := list_walkable_tiles_in_column(&g.level, g.level.width - 1)
 	exit_pos := exit_candidates[rand.int_max(len(exit_candidates))]
@@ -123,6 +122,9 @@ init_entities :: proc(g: ^Game, player_hp: int) {
 			append(&excluded, pos)
 		}
 	}
+
+	// add player last so it gets drawn on top
+	g.player_handle = spawn_entity(g, Entity{kind = .player, pos = entrance_pos, hp = player_hp})
 }
 
 spawn_enemies :: proc(
