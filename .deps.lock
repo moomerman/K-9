@@ -2,8 +2,8 @@
   "dependencies": {
     "github.com/karl-zylinski/karl2d": {
       "ref": "master",
-      "sha": "bc011272cde81eb132a9dcd88c0b5928735698be",
-      "hash": "99d80e312401e069ec3a42a77a1abbcdf78ca48544978fc597e591d515b00813"
+      "sha": "1ce0740704a4ef215e661f826dc204079875833e",
+      "hash": "986835e952469cf2421014727f7d888fdb55b331c91fdd551d1a4fead81be8b7"
     }
   }
 }
