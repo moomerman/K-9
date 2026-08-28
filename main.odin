@@ -23,13 +23,25 @@ best_level: int
 
 game: g.Game
 music: k2.Audio_Stream
+music_sound: k2.Sound
 
 init :: proc() {
 	k2.init(1000, 600, "K-9", {window_mode = .Windowed_Resizable})
 	assets.load_sounds()
 	assets.load_textures()
-	music = assets.load_music(assets.title_music)
-	k2.play_audio_stream(music)
+	switch_music(assets.title_music)
+}
+
+// Stops whatever music is playing and starts streaming `bytes` instead.
+switch_music :: proc(bytes: []u8) {
+	if k2.sound_is_valid(music_sound) {
+		k2.stop_sound(music_sound)
+	}
+	if music != k2.AUDIO_STREAM_NONE {
+		k2.destroy_audio_stream(music)
+	}
+	music = assets.load_music(bytes)
+	music_sound = assets.play_music(music)
 }
 
 start_run :: proc() {
@@ -37,9 +49,7 @@ start_run :: proc() {
 	g.init(&game)
 	game_initialized = true
 	state = .playing
-	k2.stop_audio_stream(music)
-	music = assets.load_music(assets.level_music)
-	k2.play_audio_stream(music)
+	switch_music(assets.level_music)
 }
 
 end_run :: proc() {
@@ -51,9 +61,7 @@ end_run :: proc() {
 	g.shutdown(&game)
 	game_initialized = false
 	state = .title
-	k2.stop_audio_stream(music)
-	music = assets.load_music(assets.title_music)
-	k2.play_audio_stream(music)
+	switch_music(assets.title_music)
 }
 
 step :: proc() -> bool {
@@ -353,19 +361,19 @@ play_event_sounds :: proc() {
 	for event in game.events {
 		switch event {
 		case .player_moved:
-			k2.play_sound(assets.sounds.move)
+			assets.play_sfx(assets.sounds.move)
 		case .attack_landed:
-			k2.play_sound(assets.sounds.hit)
+			assets.play_sfx(assets.sounds.hit)
 		case .player_damaged:
-			k2.play_sound(assets.sounds.hurt)
+			assets.play_sfx(assets.sounds.hurt)
 		case .pickup:
-			k2.play_sound(assets.sounds.pickup)
+			assets.play_sfx(assets.sounds.pickup)
 		case .enemy_died:
-			k2.play_sound(assets.sounds.death)
+			assets.play_sfx(assets.sounds.death)
 		case .player_died:
-			k2.play_sound(assets.sounds.death)
+			assets.play_sfx(assets.sounds.death)
 		case .level_complete:
-			k2.play_sound(assets.sounds.win)
+			assets.play_sfx(assets.sounds.win)
 		}
 	}
 	clear(&game.events)
