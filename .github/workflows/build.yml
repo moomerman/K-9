@@ -31,7 +31,7 @@ jobs:
 
       - name: Compile STB (ubuntu)
         if: matrix.os == 'ubuntu-latest'
-        run: make -C "$HOME/odin/vendor/stb/src"
+        run: cd "$HOME/odin/vendor/stb/src" && ./build_stb.sh
 
       - uses: actions/checkout@v4
       - uses: extractions/setup-just@v3
